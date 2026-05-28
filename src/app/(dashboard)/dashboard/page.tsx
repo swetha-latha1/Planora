@@ -154,7 +154,7 @@ export default function DashboardPage() {
           iconBg="bg-gradient-to-br from-orange-400 to-rose-500"
           icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-5 h-5"><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z" /></svg>} />
 
-        <SummaryCard label="Projects" value={projectStats.total} suffix={` (${projectStats.inProgress} active)`} delay={300}
+        <SummaryCard label="Projects" value={projectStats.total} suffix={` · ${projectStats.inProgress} in progress`} delay={300}
           trend={{ value: projectStats.completed, label: ' completed' }} spark={spark}
           gradient="bg-gradient-to-br from-emerald-500/20 to-teal-500/10" glowColor="rgba(16,185,129,0.4)"
           iconBg="bg-gradient-to-br from-emerald-400 to-teal-500"

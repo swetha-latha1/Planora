@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/utils';
@@ -7,8 +7,49 @@ import SearchModal from '@/components/ui/SearchModal';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/context/UserContext';
+import { useData } from '@/context/DataContext';
 
-const NOTIFS: never[] = [];
+function useNotifications() {
+  const { tasks: { tasks }, habits: { habits } } = useData();
+  return useMemo(() => {
+    const notifs: { id: string; type: 'warn' | 'success' | 'info'; text: string; href: string }[] = [];
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Overdue tasks
+    const overdue = tasks.filter(t => !t.completed && t.dueDate && t.dueDate < today);
+    if (overdue.length > 0)
+      notifs.push({ id: 'overdue', type: 'warn', text: `⚠️ ${overdue.length} task${overdue.length > 1 ? 's are' : ' is'} overdue`, href: '/tasks' });
+
+    // High priority pending
+    const highPending = tasks.filter(t => !t.completed && t.priority === 'high');
+    if (highPending.length > 0)
+      notifs.push({ id: 'high', type: 'warn', text: `🔴 ${highPending.length} high priority task${highPending.length > 1 ? 's' : ''} pending`, href: '/tasks' });
+
+    // Habits not done today
+    const habitsPending = habits.filter(h => !h.completedDates.includes(today));
+    if (habitsPending.length > 0)
+      notifs.push({ id: 'habits', type: 'info', text: `🔥 ${habitsPending.length} habit${habitsPending.length > 1 ? 's' : ''} not completed today`, href: '/habits' });
+
+    // Streaks at risk (done yesterday but not today)
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    const yStr = yesterday.toISOString().slice(0, 10);
+    const atRisk = habits.filter(h => h.streak > 2 && h.completedDates.includes(yStr) && !h.completedDates.includes(today));
+    if (atRisk.length > 0)
+      notifs.push({ id: 'streak', type: 'warn', text: `💔 ${atRisk.length} streak${atRisk.length > 1 ? 's' : ''} at risk today — don't break it!`, href: '/habits' });
+
+    // All done today
+    const allHabitsDone = habits.length > 0 && habits.every(h => h.completedDates.includes(today));
+    if (allHabitsDone)
+      notifs.push({ id: 'perfect', type: 'success', text: '✨ Perfect day! All habits completed today', href: '/habits' });
+
+    // Tasks due today
+    const dueToday = tasks.filter(t => !t.completed && t.dueDate === today);
+    if (dueToday.length > 0)
+      notifs.push({ id: 'today', type: 'info', text: `📅 ${dueToday.length} task${dueToday.length > 1 ? 's' : ''} due today`, href: '/tasks' });
+
+    return notifs;
+  }, [tasks, habits]);
+}
 
 const BREADCRUMB: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -45,6 +86,7 @@ export default function Navbar() {
   const { isDark, toggle: toggleTheme } = useTheme();
   const user = useUser();
   const [searchOpen, setSearchOpen] = useState(false);
+  const notifications = useNotifications();
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -125,6 +167,11 @@ export default function Navbar() {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-[18px] h-[18px]">
                 <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>
               </svg>
+              {notifications.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center shadow-[0_0_8px_rgba(244,63,94,0.8)]">
+                  {notifications.length > 9 ? '9+' : notifications.length}
+                </span>
+              )}
             </button>
 
             {notifOpen && (
@@ -132,24 +179,28 @@ export default function Navbar() {
                 style={{ background: '#1a1a2e', boxShadow: '0 16px 48px rgba(0,0,0,0.7)' }}>
                 <div className="px-4 py-3 border-b border-white/[0.08] flex items-center justify-between">
                   <span className="text-sm font-semibold text-white/90">Notifications</span>
+                  {notifications.length > 0 && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                      {notifications.length} new
+                    </span>
+                  )}
                 </div>
-                {NOTIFS.length === 0 ? (
+                {notifications.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 gap-2 text-center">
-                    <div className="text-2xl">🔔</div>
-                    <p className="text-xs text-white/40">No notifications yet</p>
+                    <div className="text-2xl">🎉</div>
+                    <p className="text-xs text-white/60 font-medium">All caught up!</p>
+                    <p className="text-[10px] text-white/30">No pending actions right now</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-white/[0.06]">
-                    {NOTIFS.map((n: any) => (
-                      <div key={n.id} className="px-4 py-3 cursor-pointer flex gap-3 hover:bg-white/[0.04] transition-colors">
+                  <div className="divide-y divide-white/[0.06] max-h-72 overflow-y-auto">
+                    {notifications.map(n => (
+                      <Link key={n.id} href={n.href} onClick={() => setNotifOpen(false)}
+                        className="px-4 py-3 flex gap-3 hover:bg-white/[0.04] transition-colors cursor-pointer">
                         <div className={cn('w-2 h-2 rounded-full mt-1.5 shrink-0',
                           n.type === 'warn' ? 'bg-orange-400' : n.type === 'success' ? 'bg-emerald-400' : 'bg-accent2'
                         )} />
-                        <div>
-                          <p className="text-xs text-white/85 leading-relaxed">{n.text}</p>
-                          <p className="text-[10px] text-white/40 mt-1">{n.time}</p>
-                        </div>
-                      </div>
+                        <p className="text-xs text-white/75 leading-relaxed">{n.text}</p>
+                      </Link>
                     ))}
                   </div>
                 )}
