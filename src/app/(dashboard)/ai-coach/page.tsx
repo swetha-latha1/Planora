@@ -152,7 +152,7 @@ function ChatPanel({ data }: { data: ReturnType<typeof useAICoach> }) {
 
 export default function AICoachPage() {
   const { habits: { habits }, tasks: { tasks } } = useData();
-  const data = useAICoach(habits, tasks);
+d  const data = useAICoach(habits, tasks);
   const bestDay = data.weekdayActivity.reduce((a, b) => b.pct > a.pct ? b : a, data.weekdayActivity[0]);
 
   return (

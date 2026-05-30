@@ -47,7 +47,7 @@ export default function DashboardPage() {
   const chartData = useMemo(() => getTaskChartData(tasks, period), [tasks, period]);
 
   const todayStr = new Date().toISOString().slice(0, 10);
-  const todayDone     = tasks.filter(t => t.completed && t.createdAt?.startsWith(todayStr)).length;
+  const todayDone     = tasks.filter(t => t.completed).length;
   const activeHabits  = habits.length;
   const longestStreak = habits.reduce((m, h) => Math.max(m, h.streak), 0);
   const habitsDoneToday = habits.filter(h => h.completedDates.includes(todayStr)).length;
